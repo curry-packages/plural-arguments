@@ -1,0 +1,21 @@
+{
+    "name": "plural-arguments",
+    "version": "0.0.1",
+    "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
+    "synopsis": "A tool to implement plural arguments in a Curry program",
+    "category": [ "Programming" ],
+    "dependencies": {
+    },
+    "executable": { "name": "curry-plural",
+                    "main": "TransformPluralArguments"
+                  },
+    "exportedModules": [ "Plural", "TransformPluralArguments" ],
+    "testsuite": {
+        "src-dir": "examples",
+        "script" : "test.sh"
+    },
+    "source": {
+      "git": "https://git.ps.informatik.uni-kiel.de/curry-packages/plural-arguments.git",
+      "tag": "$version"
+    }
+}

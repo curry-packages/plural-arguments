@@ -1,0 +1,380 @@
+--------------------------------------------------------------------
+--- A tool to support plural arguments by a transformation
+--- on Curry programs.
+---
+--- @author Michael Hanus
+--- @version 22/06/2015
+--------------------------------------------------------------------
+
+import AbstractCurry.Files
+import AbstractCurry.Types
+import AbstractCurry.Pretty
+import Directory    (renameFile)
+import Distribution
+import FilePath     ((</>))
+import System
+
+--------------------------------------------------------------------
+
+banner :: String
+banner = unlines [bannerLine,bannerText,bannerLine]
+ where
+   bannerText = "Curry-Plural Transformation Tool (Version of 20/03/13)"
+   bannerLine = take (length bannerText) (repeat '=')
+
+------------------------------------------------------------------------
+-- Data type for transformation parameters
+data TParam = TParam Bool -- work quietly?
+                     Bool -- compile the transformed program?
+                     Bool -- load and execute transformed program?
+
+defaultTParam = TParam False False False
+
+setRunQuiet (TParam _ cmp ep) = TParam True cmp ep
+
+setCompile (TParam wq _ ep) = TParam wq True ep
+
+setExec  (TParam wq _ _) = TParam wq True True
+
+------------------------------------------------------------------------
+
+main = do
+  args <- getArgs
+  processArgs defaultTParam args
+ where
+  processArgs tparam args = case args of
+     ["-h"]          -> putStrLn $ banner ++ usageInfo
+     ("-q":moreargs) -> processArgs (setRunQuiet  tparam) moreargs
+     ("-c":moreargs) -> processArgs (setCompile   tparam) moreargs
+     ("-r":moreargs) -> processArgs (setExec      tparam) moreargs
+     [mname]         -> transformPlural tparam (stripCurrySuffix mname)
+     _ -> putStrLn $ banner ++
+           "\nERROR: Illegal arguments for transformation: " ++
+           unwords args ++ "\n" ++ usageInfo
+
+usageInfo =
+  "Usage: curry-plural [-q|-c|-r] <module_name>\n"++
+  "-q : work quietly\n"++
+  "-c : compile the transformed program\n"++
+  "-r : load the transformed program into the Curry system '" ++
+  curryCompiler ++ "' (implies -c)\n"
+
+transformPlural (TParam quiet compile execprog) progname = do
+  let progfname = progname ++ ".curry"
+      saveprogfname = progname++"_ORG.curry"
+      transprogfname = progname++"_TRANS.curry"
+      putStrNQ s = if quiet then done else putStr s
+      putStrLnNQ s = if quiet then done else putStrLn s
+  putStrLnNQ banner
+  uc <- readUntypedCurry progname
+  let pargs = (pluralArgsOfProg uc)
+  if null pargs
+   then putStrLnNQ $ "No plural arguments found."
+   else do
+     putStrNQ "Plural arguments:"
+     putStrLnNQ (concatMap (\ ((_,f),args) -> " "++f++"/"++show args) pargs)
+     system $ "cleancurry " ++ progname
+     ac <- readCurry progname
+     let transprog = showCProg (tPluralProg pargs ac)
+     putStrLnNQ "Transformed module:"
+     putStrLnNQ transprog
+     when compile $ do
+       renameFile progfname saveprogfname
+       writeFile progfname transprog
+       compileAcyFcy quiet progname
+       renameFile progfname transprogfname
+       renameFile saveprogfname progfname
+       putStrLnNQ $ "Transformed program written into '"++transprogfname++"'"
+       when execprog $ do
+         system $ unwords [installDir </> "bin" </> "curry", ":load", progname]
+         done
+
+compileAcyFcy quiet progname = do
+  params <- rcParams >>= return . setQuiet quiet
+  callFrontendWithParams ACY params progname
+  callFrontendWithParams FCY params progname
+
+------------------------------------------------------------------------
+-- Extract plural arguments:
+pluralArgsOfProg (CurryProg _ _ _ funs _) =
+  concatMap pluralArgsOfFunc funs
+
+pluralArgsOfFunc (CFunc mf _ _ ctype _) =
+  let pargs = pluralArgsOfType 1 ctype
+   in if null pargs then [] else [(mf,pargs)]
+pluralArgsOfFunc (CmtFunc _ mf ar vis ctype rs) =
+  pluralArgsOfFunc (CFunc mf ar vis ctype rs)
+
+
+pluralArgsOfType argnum ty = case ty of
+  CFuncType (CTCons tc [_]) t2 -> (if tc==tcPlural then (argnum:) else id)
+                                    (pluralArgsOfType (argnum+1) t2)
+  CFuncType _ t2 -> pluralArgsOfType (argnum+1) t2
+  _ -> []
+
+tcPlural = ("Plural","Plural")
+tcPluralArg = ("Plural","PluralArg")
+tcplural = ("Plural","plural")
+
+------------------------------------------------------------------------
+-- Transform a program containing plural arguments:
+tPluralProg pargs (CurryProg mname imps tdecls funs ops) =
+  CurryProg mname imps tdecls (map (tPluralFunc mname pargs) funs) ops
+
+tPluralFunc mname pargs (CFunc mf ar vis ctype rs) =
+  let fpargs = maybe [] id (lookup mf pargs)
+   in CFunc mf ar vis (tPluralType fpargs 1 ctype)
+            (map (tPluralRule mname pargs fpargs) rs)
+tPluralFunc mname pargs (CmtFunc cmt mf ar vis ctype rs) =
+  let (CFunc mf' ar' vis' ctype' rs') =
+                          tPluralFunc mname pargs (CFunc mf ar vis ctype rs)
+   in (CmtFunc cmt mf' ar' vis' ctype' rs')
+
+tPluralType fpargs argnum ty = case ty of
+  CFuncType t1 t2 -> CFuncType (if argnum `elem` fpargs
+                                then (CTCons tcPluralArg [t1])
+                                else t1) 
+                               (tPluralType fpargs (argnum+1) t2)
+  _ -> ty
+
+tPluralRule mname pargs fpargs (CRule pats (CSimpleRhs exp locals)) =
+  tPluralRule mname pargs fpargs
+              (CRule pats (CGuardedRhs [(preSuccess,exp)] locals))
+tPluralRule mname pargs fpargs (CRule pats (CGuardedRhs condrules locals)) =
+  CRule (map (replacePluralCPatterns fpargs) numpats)
+        (CGuardedRhs (map tPluralCondRule condrules)
+                     (locals ++ map CLocalFunc (concat pllocals)))
+ where
+  numpats = zip [1..] pats
+
+  (plvars,pllocals) = unzip (map (pluralVarsOfPattern mname fpargs) numpats)
+
+  tPluralCondRule (cond,exp) =
+    (list2conj
+         (concatMap (matchForPluralCPatterns mname fpargs) numpats ++
+          if cond == preSuccess
+          then []
+          else [tPluralExp pargs (concat plvars) cond]),
+     tPluralExp pargs (concat plvars) exp)
+
+-- Replace plural constructor patterns by fresh variables.
+replacePluralCPatterns fpargs (n,pat) = case pat of
+  CPVar _     -> pat
+  CPLit _     -> pat
+  CPComb _ _  -> if n `elem` fpargs then CPVar (freshVar n) else pat
+  CPAs v _    -> if n `elem` fpargs then CPVar v else pat
+  CPFuncComb _ _ -> funPatError
+  CPLazy _       -> lazyPatError
+  CPRecord _ _   -> recPatError
+
+funPatError :: _
+funPatError =
+  error "Plural arguments with functional patterns not yet supported!"
+
+lazyPatError :: _
+lazyPatError =
+  error "Plural arguments with lazy patterns not yet supported!"
+
+recPatError :: _
+recPatError =
+  error "Plural arguments with record patterns not yet supported!"
+
+-- Create a "fresh" variable with an index n (should be improved...):
+freshVar n = (142+n,"newvar"++show n)
+
+-- Generate match calls for fresh variables introduced
+-- for plural constructor patterns.
+matchForPluralCPatterns mname fpargs (n,pat) = case pat of
+  CPVar _     -> []
+  CPLit _     -> []
+  CPComb _ _  -> if n `elem` fpargs
+                 then [applyF (mname,"match_"++show n)
+                              [applyF tcplural [CVar (freshVar n)]]]
+                 else []
+  CPAs v apat -> if n `elem` fpargs
+                 then case apat of
+                       CPComb _ _ -> [applyF (mname,"match_"++show n)
+                                             [applyF tcplural [CVar v]]]
+                       CPFuncComb _ _ -> funPatError
+                       CPAs _ _ -> error "Nested as patterns not supported!"
+                       _ -> []
+                 else []
+  CPFuncComb _ _ -> funPatError
+  CPLazy _       -> lazyPatError
+  CPRecord _ _   -> recPatError
+
+-- Extract the plural arguments from a list of patterns.
+-- The second argument is the list of plural argument positions.
+-- The result is a renaming of variables into expressions (to be
+-- performed in the right-hand side) and the list of new local
+-- match and projection functions.
+pluralVarsOfPattern :: String -> [Int] -> (Int,CPattern)
+                    -> ([(CVarIName,CExpr)],[CFuncDecl])
+pluralVarsOfPattern mname fpargs (n,pat) =
+  pluralVarsOfPattern' mname fpargs (freshVar n) (n,pat)
+
+pluralVarsOfPattern' mname fpargs dfltpvar (n,pat) =
+  if n `notElem` fpargs then ([],[]) else
+  case pat of
+    CPVar v -> ([(v,applyF tcplural [CVar v])], [])
+    CPLit _ -> ([],[])
+    CPComb _ pats ->
+       (concatMap (projectPluralPatternVars mname dfltpvar ("project_"++show n))
+                  (zip [1..] pats),
+        CFunc (mname,"match_"++show n) 1 Private
+              (baseType (pre "untyped")) --TODO???
+              [CRule [pat] (CSimpleRhs preSuccess [])] :
+        concatMap (projectFunctions mname pat ("project_"++show n))
+                  (zip [1..] pats))
+    CPAs v apat -> let (renvars,mpfuns) =
+                         pluralVarsOfPattern' mname fpargs v (n,apat)
+                    in ([(v,applyF tcplural [CVar v])]++renvars,mpfuns)
+    CPFuncComb _ _ -> funPatError
+    CPLazy _       -> lazyPatError
+    CPRecord _ _   -> recPatError
+
+-- Generate the transformation of variables in a constructor pattern
+-- into calls to projection functions
+projectPluralPatternVars mname newpatvar projname (i,pat) = case pat of
+  CPVar v -> [(v,applyF (mname,projname++"_"++show i)
+                        [applyF tcplural [CVar newpatvar]])]
+  CPLit _ -> []
+  CPComb _ pats -> concatMap (projectPluralPatternVars mname newpatvar
+                                             (projname++"_"++show i))
+                             (zip [1..] pats)
+  CPAs _ apat -> projectPluralPatternVars mname newpatvar
+                                  (projname++"_"++show i) (1,apat)
+  CPFuncComb _ _ -> funPatError
+  CPLazy _       -> lazyPatError
+  CPRecord _ _   -> recPatError
+
+-- Generate definition of projection functions for a constructor pattern
+projectFunctions :: String -> CPattern -> String -> (Int,CPattern)
+                 -> [CFuncDecl]
+projectFunctions mname cpattern projname (i,pat) = case pat of
+  CPVar v -> [CFunc (mname,projname++"_"++show i) 1 Private
+                    (baseType (pre "untyped")) --TODO???
+                    [CRule [cpattern] (CSimpleRhs (CVar v) [])]]
+  CPLit _ -> []
+  CPComb _ pats -> concatMap (projectFunctions mname cpattern
+                                             (projname++"_"++show i))
+                             (zip [1..] pats)
+  CPAs _ apat -> projectFunctions mname cpattern (projname++"_"++show i)
+                                  (1,apat)
+  CPFuncComb _ _ -> funPatError
+  CPLazy _       -> lazyPatError
+  CPRecord _ _   -> recPatError
+
+-- Translate an expression possibly containing plural arguments.
+tPluralExp :: [(QName,[Int])] -> [(CVarIName,CExpr)] -> CExpr -> CExpr
+tPluralExp pargs plvars exp = case exp of
+  CVar v              -> maybe exp id (lookup v plvars)
+  CLit _              -> exp
+  CSymbol _           -> exp
+  CApply e1 e2        -> tPluralApply pargs plvars e1 e2
+  CLambda pats e      -> CLambda pats (tPluralExp pargs plvars e)
+  CLetDecl locals e   -> CLetDecl (map (tPluralLocalDecl pargs plvars) locals)
+                                  (tPluralExp pargs plvars e)
+  CDoExpr stats       -> CDoExpr (map (tPluralStat pargs plvars) stats)
+  CListComp e stats   -> CListComp (tPluralExp pargs plvars e)
+                                   (map (tPluralStat pargs plvars) stats)
+  CCase ct e branches -> CCase ct (tPluralExp pargs plvars e)
+                               (map (tPluralBranch pargs plvars) branches)
+  CTyped e texp       -> CTyped (tPluralExp pargs plvars e) texp
+
+tPluralBranch :: [(QName,[Int])] -> [(CVarIName,CExpr)] -> (CPattern,CRhs)
+              -> (CPattern,CRhs)
+tPluralBranch pargs plvars (pat,rhs) =
+  (pat, tPluralRhs pargs plvars rhs)
+
+tPluralRhs :: [(QName,[Int])] -> [(CVarIName,CExpr)] -> CRhs -> CRhs
+tPluralRhs pargs plvars (CSimpleRhs exp locals) =
+  (CSimpleRhs (tPluralExp pargs plvars exp)
+              (map (tPluralLocalDecl pargs plvars) locals))
+tPluralRhs pargs plvars (CGuardedRhs guardexps locals) =
+  (CGuardedRhs (map tPluralGExp guardexps)
+               (map (tPluralLocalDecl pargs plvars) locals))
+ where
+   tPluralGExp (guard,exp) =
+     (tPluralExp pargs plvars guard, tPluralExp pargs plvars exp)
+
+tPluralLocalDecl :: [(QName,[Int])] -> [(CVarIName,CExpr)] -> CLocalDecl
+                 -> CLocalDecl
+tPluralLocalDecl pargs _ (CLocalFunc fdecl) =
+  CLocalFunc (tPluralFunc (error "tPluralLocalDecl")
+                          pargs {- TODO: plvars ??? -} fdecl)
+tPluralLocalDecl pargs plvars (CLocalPat pat rhs) =
+  CLocalPat pat (tPluralRhs pargs plvars rhs)
+tPluralLocalDecl _ _ (CLocalVars vs) = CLocalVars vs
+
+tPluralStat :: [(QName,[Int])] -> [(CVarIName,CExpr)] -> CStatement
+            -> CStatement
+tPluralStat pargs plvars (CSExpr exp) =
+  CSExpr (tPluralExp pargs plvars exp)
+tPluralStat pargs plvars (CSPat pat exp) =
+  CSPat pat (tPluralExp pargs plvars exp)
+tPluralStat pargs plvars (CSLet locals) =
+  CSLet (map (tPluralLocalDecl pargs plvars) locals)
+
+-- Translate an application. If the operation to be called has plural
+-- arguments, they are transformed into lambda abstractions.
+tPluralApply :: [(QName,[Int])] -> [(CVarIName,CExpr)] -> CExpr -> CExpr
+             -> CExpr
+tPluralApply pargs plvars e1 e2 =
+  maybe texp
+        (\ (qn,args) -> let fpargs = maybe [] id (lookup qn pargs)
+                         in if null fpargs
+                            then texp
+                            else applyF qn
+                                   (map (tPluralArg fpargs) (zip [1..] args)))
+        (apply2funcall (CApply e1 e2))
+ where
+  texp = CApply (tPluralExp pargs plvars e1) (tPluralExp pargs plvars e2)
+
+  tPluralArg fpargs (n,arg) =
+    if n `elem` fpargs
+    then CApply (CSymbol tcPluralArg) (CLambda [CPVar (0,"_")] targ)
+    else targ
+   where
+     targ = tPluralExp pargs plvars arg
+
+------------------------------------------------------------------------
+-- AbstractCurryGoodies:
+
+-- try to transform an apply expression into a first-order function call:
+apply2funcall :: CExpr -> Maybe (QName,[CExpr])
+apply2funcall exp = case exp of
+  CApply (CSymbol f) e -> Just (f,[e])
+  CApply e1@(CApply _ _) e2 ->
+    maybe Nothing (\ (qn,exps) -> Just (qn,exps++[e2])) (apply2funcall e1)
+  _ -> Nothing
+
+--- A function type.
+(~>) :: CTypeExpr -> CTypeExpr -> CTypeExpr
+t1 ~> t2 = CFuncType t1 t2
+
+--- A base type.
+baseType :: QName -> CTypeExpr
+baseType t = CTCons t []
+
+--- An application of a qualified function name to a list of arguments.
+applyF :: QName -> [CExpr] -> CExpr
+applyF f es = foldl CApply (CSymbol f) es 
+
+--- A constant, i.e., an application without arguments.
+constF :: QName -> CExpr
+constF f = applyF f []
+
+--- Converts a string into a qualified name of the Prelude.
+pre :: String -> QName
+pre f = ("Prelude", f)
+
+-- Call to "Prelude.success":
+preSuccess :: CExpr
+preSuccess = constF (pre "success")
+
+-- Converts a list of AbstractCurry expressions into a conjunction.
+list2conj :: [CExpr] -> CExpr
+list2conj cs =
+  if null cs then preSuccess
+             else foldr1 (\c1 c2 -> applyF (pre "&") [c1,c2]) cs
