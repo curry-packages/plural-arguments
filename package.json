@@ -5,6 +5,7 @@
     "synopsis": "A tool to implement plural arguments in a Curry program",
     "category": [ "Programming" ],
     "dependencies": {
+        "abstract-curry" : ">= 1.0.0"
     },
     "compilerCompatibility": {
         "pakcs": ">= 1.14.0, < 2.0.0",
