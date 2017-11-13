@@ -11,6 +11,7 @@ import AbstractCurry.Types
 import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
+import Char         (toUpper)
 import Directory    (renameFile)
 import Distribution
 import FilePath     ((</>))
@@ -100,9 +101,12 @@ transformPlural (TParam quiet compile execprog) progname = do
 
 compileAcyFcy :: Bool -> String -> IO ()
 compileAcyFcy quiet progname = do
-  params <- rcParams >>= return . setQuiet quiet
+  params <- rcParams >>= return . setQuiet quiet . setDefinitions defs
   callFrontendWithParams ACY params progname
   callFrontendWithParams FCY params progname
+ where
+  defs = [( "__" ++ map toUpper curryCompiler ++ "__"
+          , curryCompilerMajorVersion * 100 + curryCompilerMinorVersion )]
 
 ------------------------------------------------------------------------
 -- Extract plural arguments:
@@ -156,7 +160,7 @@ tPluralType :: [Int] -> Int -> CTypeExpr -> CTypeExpr
 tPluralType fpargs argnum ty = case ty of
   CFuncType t1 t2 -> CFuncType (if argnum `elem` fpargs
                                 then CTApply (CTCons tcPluralArg) t1
-                                else t1) 
+                                else t1)
                                (tPluralType fpargs (argnum+1) t2)
   _ -> ty
 
