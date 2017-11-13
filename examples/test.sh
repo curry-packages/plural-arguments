@@ -3,13 +3,13 @@
 
 /bin/rm -rf .curry *_TRANS.curry
 
-cpm exec curry-plural -q -c Palindrome
-cpm exec curry-check PalindromeTests
+cypm exec curry-plural -q -c Palindrome
+cypm exec curry-check PalindromeTests
 
-cpm exec curry-plural -q -c CoinExamples
-cpm exec curry-check CoinExamplesTests
+cypm exec curry-plural -q -c CoinExamples
+cypm exec curry-check CoinExamplesTests
 
-cpm exec curry-plural -q -c ExprParser
-cpm exec curry-check ExprParserTests
+cypm exec curry-plural -q -c ExprParser
+cypm exec curry-check ExprParserTests
 
 /bin/rm -rf .curry *_TRANS.curry
