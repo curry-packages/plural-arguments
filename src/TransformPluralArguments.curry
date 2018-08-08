@@ -11,10 +11,11 @@ import AbstractCurry.Types
 import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
-import Directory    (renameFile)
+import System.Directory     (renameFile)
+import System.FilePath      ((</>))
+import System.Environment   (getArgs)
+import System.Process       (system)
 import Distribution
-import FilePath     ((</>))
-import System
 
 --------------------------------------------------------------------
 
