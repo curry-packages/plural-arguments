@@ -3,7 +3,7 @@
 --- on Curry programs.
 ---
 --- @author Michael Hanus
---- @version 22/06/2015
+--- @version November 2018
 --------------------------------------------------------------------
 
 import AbstractCurry.Files
@@ -11,17 +11,20 @@ import AbstractCurry.Types
 import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
-import Directory    (renameFile)
-import Distribution
-import FilePath     ((</>))
+import Directory    ( renameFile )
+import Distribution ( curryCompiler, installDir, stripCurrySuffix )
+import FilePath     ( (</>) )
 import System
+
+import System.FrontendExec ( FrontendTarget(..), callFrontendWithParams
+                           , rcParams, setQuiet )
 
 --------------------------------------------------------------------
 
 banner :: String
 banner = unlines [bannerLine,bannerText,bannerLine]
  where
-   bannerText = "Curry-Plural Transformation Tool (Version of 20/03/13)"
+   bannerText = "Curry-Plural Transformation Tool (Version of 20/11/18)"
    bannerLine = take (length bannerText) (repeat '=')
 
 ------------------------------------------------------------------------
