@@ -3,21 +3,22 @@
 --- on Curry programs.
 ---
 --- @author Michael Hanus
---- @version November 2018
+--- @version December 2018
 --------------------------------------------------------------------
+
+import Directory    ( renameFile )
+import Distribution ( curryCompiler, installDir )
+import FilePath     ( (</>) )
+import System
 
 import AbstractCurry.Files
 import AbstractCurry.Types
 import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
-import Directory    ( renameFile )
-import Distribution ( curryCompiler, installDir, stripCurrySuffix )
-import FilePath     ( (</>) )
-import System
-
-import System.FrontendExec ( FrontendTarget(..), callFrontendWithParams
-                           , rcParams, setQuiet )
+import System.CurryPath     ( stripCurrySuffix )
+import System.FrontendExec  ( FrontendTarget(..), callFrontendWithParams
+                            , rcParams, setQuiet )
 
 --------------------------------------------------------------------
 
