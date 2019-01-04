@@ -16,7 +16,7 @@ Installation:
 
 The tool can be directly installed by the command
 
-    > cpm installbin plural-arguments
+    > cypm install plural-arguments
 
 This installs the executable `curry-plural` in the bin directory of CPM.
 The tool implements the necessary transformation on Curry programs.
