@@ -3,13 +3,13 @@
 --- on Curry programs.
 ---
 --- @author Michael Hanus
---- @version December 2018
+--- @version July 2021
 --------------------------------------------------------------------
 
-import Directory    ( renameFile )
-import Distribution ( curryCompiler, installDir )
-import FilePath     ( (</>) )
-import System
+import Curry.Compiler.Distribution ( curryCompiler, installDir )
+
+import Control.Monad        ( when )
+import System.Environment   ( getArgs )
 
 import AbstractCurry.Files
 import AbstractCurry.Types
@@ -17,9 +17,11 @@ import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
 import System.CurryPath     ( stripCurrySuffix )
+import System.Directory     ( renameFile )
+import System.FilePath      ( (</>) )
 import System.FrontendExec  ( FrontendTarget(..), callFrontendWithParams
                             , rcParams, setQuiet )
-
+import System.Process       ( system )
 --------------------------------------------------------------------
 
 banner :: String
@@ -76,8 +78,8 @@ transformPlural (TParam quiet compile execprog) progname = do
   let progfname = progname ++ ".curry"
       saveprogfname = progname++"_ORG.curry"
       transprogfname = progname++"_TRANS.curry"
-      putStrNQ s = if quiet then done else putStr s
-      putStrLnNQ s = if quiet then done else putStrLn s
+      putStrNQ s = if quiet then return () else putStr s
+      putStrLnNQ s = if quiet then return () else putStrLn s
   putStrLnNQ banner
   uc <- readUntypedCurry progname
   let pargs = (pluralArgsOfProg uc)
@@ -100,7 +102,7 @@ transformPlural (TParam quiet compile execprog) progname = do
        putStrLnNQ $ "Transformed program written into '"++transprogfname++"'"
        when execprog $ do
          system $ unwords [installDir </> "bin" </> "curry", ":load", progname]
-         done
+         return ()
 
 compileAcyFcy :: Bool -> String -> IO ()
 compileAcyFcy quiet progname = do

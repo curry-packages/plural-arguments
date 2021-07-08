@@ -10,7 +10,7 @@ infixr 2 <|>
 type Parser token = [token] -> [token]
 
 --- A parser recognizing a particular terminal symbol.
-terminal :: t -> Parser t
+terminal :: Data t => t -> Parser t
 terminal sym (token:tokens) | sym=:=token = tokens
 
 --- The empty parser which recognizes the empty word.
@@ -22,13 +22,13 @@ empty sentence = sentence
 p <|> q = \sentence -> p sentence ? q sentence
 
 --- Combines two parsers sequentially.
-(<*>)    :: Parser t -> Parser t -> Parser t
+(<*>)    :: Data t => Parser t -> Parser t -> Parser t
 p1 <*> p2 = seq
  where seq sentence | p1 sentence =:= sent1 = p2 sent1  where sent1 free
 
 --- Star combinator for a parser. Since the parser argument is
 --- used several time, it is passed as a plural argument.
-star :: Plural (Parser t) -> Parser t
+star :: Data t => Plural (Parser t) -> Parser t
 star p = empty <|> (p <*> star p)
 
 -- A parser for numbers parameterized over the possible digits (so that
