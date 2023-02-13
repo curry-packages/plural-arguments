@@ -1,7 +1,6 @@
 -- A palindrome parser parameterized over the alphabet via a plural argument
 
 import Plural
-import Test.Prop
 
 --- A parser maps a list of tokens into a list of unconsumed tokens
 type Parser token = [token] -> [token]

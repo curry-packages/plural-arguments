@@ -29,13 +29,20 @@ To use plural arguments in a Curry program,
 import the library `Plural` (available in the `src` directory)
 and mark the plural arguments of an operation by wrapping
 their type with the type constructor `Plural` in their
-type signature. Currently, this is restricted to top-level
+type signature, e.g.:
+
+    dupp :: Plural Int -> (Int,Int)
+    dupp x = (x,x)
+
+Currently, this is restricted to top-level
 operations. As an example, consider the operation `pali`
-of the Curry program `pali.curry`.
+of the Curry program [`Palindrome`](examples/Palindrome.curry).
 
 Then execute the program transformation by the command
+(the invocation via "`cypm exec`" is necessary to locate
+the library `Plural`)
 
-    > curry-plural -r prog.curry
+    > cypm exec curry-plural -r prog.curry
 
 This performs the transformation and loads the transformed
 program into the Curry system. To see a list of
