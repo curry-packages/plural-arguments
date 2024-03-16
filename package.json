@@ -24,7 +24,7 @@
         "script" : "test.sh"
     },
     "source": {
-      "git": "https://git.ps.informatik.uni-kiel.de/curry-packages/plural-arguments.git",
+      "git": "https://github.com/curry-packages/plural-arguments.git",
       "tag": "$version"
     }
 }
