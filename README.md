@@ -39,10 +39,8 @@ operations. As an example, consider the operation `pali`
 of the Curry program [`Palindrome`](examples/Palindrome.curry).
 
 Then execute the program transformation by the command
-(the invocation via "`cypm exec`" is necessary to locate
-the library `Plural`)
 
-    > cypm exec curry-plural -r prog.curry
+    > curry-plural -r prog.curry
 
 This performs the transformation and loads the transformed
 program into the Curry system. To see a list of

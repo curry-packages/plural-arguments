@@ -1,6 +1,6 @@
 {
     "name": "plural-arguments",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
     "synopsis": "A tool to implement plural arguments in a Curry program",
     "category": [ "Logic", "Programming" ],
@@ -19,6 +19,7 @@
                     "main": "TransformPluralArguments"
                   },
     "exportedModules": [ "Plural", "TransformPluralArguments" ],
+    "configModule": "ConfigPluralPackage",
     "testsuite": {
         "src-dir": "examples",
         "script" : "test.sh"

@@ -3,13 +3,13 @@
 --- on Curry programs.
 ---
 --- @author Michael Hanus
---- @version July 2021
+--- @version July 2024
 --------------------------------------------------------------------
 
 import Curry.Compiler.Distribution ( curryCompiler, installDir )
 
 import Control.Monad        ( when )
-import System.Environment   ( getArgs )
+import System.Environment   ( getArgs, getEnv, setEnv )
 
 import AbstractCurry.Files
 import AbstractCurry.Types
@@ -18,16 +18,19 @@ import AbstractCurry.Build
 import AbstractCurry.Pretty
 import System.CurryPath     ( stripCurrySuffix )
 import System.Directory     ( renameFile )
-import System.FilePath      ( (</>) )
+import System.FilePath      ( (</>), searchPathSeparator )
 import System.FrontendExec  ( FrontendTarget(..), callFrontendWithParams
                             , rcParams, setQuiet )
 import System.Process       ( system )
+
+import ConfigPluralPackage  ( getPackagePath )
+
 --------------------------------------------------------------------
 
 banner :: String
 banner = unlines [bannerLine,bannerText,bannerLine]
  where
-   bannerText = "Curry-Plural Transformation Tool (Version of 20/11/18)"
+   bannerText = "Curry-Plural Transformation Tool (Version of 23/07/24)"
    bannerLine = take (length bannerText) (repeat '=')
 
 ------------------------------------------------------------------------
@@ -75,12 +78,16 @@ usageInfo =
 
 transformPlural :: TParam -> String -> IO ()
 transformPlural (TParam quiet compile execprog) progname = do
-  let progfname = progname ++ ".curry"
-      saveprogfname = progname++"_ORG.curry"
-      transprogfname = progname++"_TRANS.curry"
+  let progfname      = progname ++ ".curry"
+      saveprogfname  = progname ++ "_ORG.curry"
+      transprogfname = progname ++ "_TRANS.curry"
       putStrNQ s = if quiet then return () else putStr s
       putStrLnNQ s = if quiet then return () else putStrLn s
   putStrLnNQ banner
+  ppath <- fmap (</> "src") getPackagePath
+  cp <- getEnv "CURRYPATH"
+  setEnv "CURRYPATH" (if null cp then ppath
+                                 else ppath ++ searchPathSeparator : cp)
   uc <- readUntypedCurry progname
   let pargs = (pluralArgsOfProg uc)
   if null pargs
