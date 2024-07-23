@@ -1,6 +1,6 @@
 -- Definition of operations without and with plural arguments in Curry
 
-import Plural
+import Language.Curry.Plural
 
 coin :: Int
 coin = 0 ? 1

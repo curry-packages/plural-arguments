@@ -1,7 +1,7 @@
 -- An example for the use of plural arguments:
 -- An expression parser which has the possible operators as a plural argument.
 
-import Plural
+import Language.Curry.Plural
 
 infixr 4 <*>
 infixr 2 <|>

@@ -4,7 +4,7 @@
 --- @author Michael Hanus
 --- @version December 2012
 
-module Plural where
+module Language.Curry.Plural where
 
 --- This trivial type synonym is used to mark plural arguments in
 --- a Curry program.

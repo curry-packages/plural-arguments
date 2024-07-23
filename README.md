@@ -6,9 +6,9 @@ to support plural arguments in Curry programs.
 The idea and background of this implementation is
 described in the following paper:
 
-Michael Hanus: Adding Plural Arguments to Curry Programs,
-Tech. Comm. of the 29th Int. Conf. on Logic Programming (ICLP 2013),
-Theory and Practice of Logic Programming 13 (4-5-Online-Supplement), 2013 
+> Michael Hanus: Adding Plural Arguments to Curry Programs,
+> Tech. Comm. of the 29th Int. Conf. on Logic Programming (ICLP 2013),
+> Theory and Practice of Logic Programming 13 (4-5-Online-Supplement), 2013 
 
 
 Installation:
@@ -26,7 +26,7 @@ Usage:
 ------
 
 To use plural arguments in a Curry program,
-import the library `Plural` (available in the `src` directory)
+import the library `Language.Curry.Plural` (available in the `src` directory)
 and mark the plural arguments of an operation by wrapping
 their type with the type constructor `Plural` in their
 type signature, e.g.:

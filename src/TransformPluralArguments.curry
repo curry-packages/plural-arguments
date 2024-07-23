@@ -80,8 +80,8 @@ transformPlural :: TParam -> String -> IO ()
 transformPlural (TParam quiet compile execprog) progname = do
   let progfname      = progname ++ ".curry"
       saveprogfname  = progname ++ "_ORG.curry"
-      transprogfname = progname ++ "_TRANS.curry"
-      putStrNQ s = if quiet then return () else putStr s
+      transprogfname = progname ++ "_TRANSPLURAL.curry"
+      putStrNQ s   = if quiet then return () else putStr s
       putStrLnNQ s = if quiet then return () else putStrLn s
   putStrLnNQ banner
   ppath <- fmap (</> "src") getPackagePath
@@ -106,7 +106,8 @@ transformPlural (TParam quiet compile execprog) progname = do
        compileAcyFcy quiet progname
        renameFile progfname transprogfname
        renameFile saveprogfname progfname
-       putStrLnNQ $ "Transformed program written into '"++transprogfname++"'"
+       putStrLnNQ $
+         "Transformed program written into '" ++ transprogfname ++ "'"
        when execprog $ do
          system $ unwords [installDir </> "bin" </> "curry", ":load", progname]
          return ()
@@ -139,14 +140,18 @@ pluralArgsOfType argnum ty = case ty of
   CFuncType _ t2 -> pluralArgsOfType (argnum+1) t2
   _ -> []
 
+-- Transform a name into a qualified name of the Plural module.
+toPluralModName :: String -> QName
+toPluralModName s = ("Language.Curry.Plural", s)
+
 tcPlural :: QName
-tcPlural = ("Plural","Plural")
+tcPlural = toPluralModName "Plural"
 
 tcPluralArg :: QName
-tcPluralArg = ("Plural","PluralArg")
+tcPluralArg = toPluralModName "PluralArg"
 
 tcplural :: QName
-tcplural = ("Plural","plural")
+tcplural = toPluralModName "plural"
 
 ------------------------------------------------------------------------
 -- Transform a program containing plural arguments:
@@ -378,8 +383,8 @@ tPluralApply pargs plvars e1 e2 =
 
   tPluralArg fpargs (n,arg) =
     if n `elem` fpargs
-    then CApply (CSymbol tcPluralArg) (CLambda [CPVar (0,"_")] targ)
-    else targ
+      then CApply (CSymbol tcPluralArg) (CLambda [CPVar (0,"_")] targ)
+      else targ
    where
      targ = tPluralExp pargs plvars arg
 
