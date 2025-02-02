@@ -1,4 +1,5 @@
 -- A palindrome parser parameterized over the alphabet via a plural argument
+module Palindrome where
 
 import Language.Curry.Plural
 

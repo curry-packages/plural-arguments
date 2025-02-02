@@ -1,5 +1,6 @@
 -- An example for the use of plural arguments:
 -- An expression parser which has the possible operators as a plural argument.
+module ExprParser where
 
 import Language.Curry.Plural
 

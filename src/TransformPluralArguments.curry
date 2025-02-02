@@ -5,6 +5,8 @@
 --- @author Michael Hanus
 --- @version July 2024
 --------------------------------------------------------------------
+module TransformPluralArguments ( main ) 
+ where
 
 import Curry.Compiler.Distribution ( curryCompiler, installDir )
 

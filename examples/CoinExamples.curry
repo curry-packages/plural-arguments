@@ -1,4 +1,5 @@
 -- Definition of operations without and with plural arguments in Curry
+module CoinExamples where
 
 import Language.Curry.Plural
 

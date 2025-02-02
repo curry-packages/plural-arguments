@@ -18,7 +18,7 @@
     "executable": { "name": "curry-plural",
                     "main": "TransformPluralArguments"
                   },
-    "exportedModules": [ "Plural", "TransformPluralArguments" ],
+    "exportedModules": [ "Language.Curry.Plural", "TransformPluralArguments" ],
     "configModule": "ConfigPluralPackage",
     "testsuite": {
         "src-dir": "examples",
