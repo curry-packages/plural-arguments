@@ -64,4 +64,4 @@ Contact:
 --------
 
 In case of problems or comments, contact
-[Michael Hanus](http://www.informatik.uni-kiel.de/~mh/).
+[Michael Hanus](http://www.michaelhanus.de/).
